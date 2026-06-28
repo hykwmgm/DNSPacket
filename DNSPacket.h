@@ -2,6 +2,7 @@
 
 using std::vector;
 using std::string;
+using std::cout;
 
 class DNSPacket {
 public:
@@ -57,23 +58,29 @@ public:
     const vector<RR>& authority_getter() const { return authority; }
     const vector<RR>& additional_getter() const { return additional; }
 
-    void parameter_to_octets(void){
+    void parameter_to_octets(int section_num = 2){
         octets.clear();
-        octets_to_8bits(header.id, octets);
-        octets_to_8bits(header.flags, octets);
-        octets_to_8bits(header.qdcount, octets);
-        octets_to_8bits(header.ancount, octets);
-        octets_to_8bits(header.nscount, octets);
-        octets_to_8bits(header.arcount, octets);
-
-        for(const auto &q: question){
-            octets.insert(octets.end(), q.name.begin(), q.name.end());
-            octets_to_8bits(q.type, octets);
-            octets_to_8bits(q.Class, octets);
+        if(section_num >= 1){
+            binary_to_8bits(header.id, octets);
+            binary_to_8bits(header.flags, octets);
+            binary_to_8bits(header.qdcount, octets);
+            binary_to_8bits(header.ancount, octets);
+            binary_to_8bits(header.nscount, octets);
+            binary_to_8bits(header.arcount, octets);
         }
-        rrs_to_octets(answer);
-        rrs_to_octets(authority);
-        rrs_to_octets(additional);
+        if(section_num >= 2){
+            for(const auto &q: question){
+            octets.insert(octets.end(), q.name.begin(), q.name.end());
+            binary_to_8bits(q.type, octets);
+            binary_to_8bits(q.Class, octets);
+            }
+        }
+        if(section_num >= 3)
+            rrs_to_octets(answer);
+        if(section_num >= 4)
+            rrs_to_octets(authority);
+        if(section_num >= 5)
+            rrs_to_octets(additional);
 
         return ;
     }
@@ -85,33 +92,51 @@ public:
 
         int pos = 0, size = octets.size();
 
-        if(pos + 1 < size)
-            this->header.id = read_u16(pos);
-        if(pos + 1 < size)
-            this->header.flags = read_u16(pos);
-        if(pos + 1 < size)
-            this->header.qdcount = read_u16(pos);
-        if(pos + 1 < size)
-            this->header.ancount = read_u16(pos);
-        if(pos + 1 < size)
-            this->header.nscount = read_u16(pos);
-        if(pos + 1 < size)
-            this->header.arcount = read_u16(pos);
+        if(pos + 1 > size)
+            return ;
+        this->header.id = read_u16(pos);
+        if(pos + 1 > size)
+            return;
+        this->header.flags = read_u16(pos);
+        if(pos + 1 > size)
+            return;
+        this->header.qdcount = read_u16(pos);
+        if(pos + 1 > size)
+            return;
+        this->header.ancount = read_u16(pos);
+        if(pos + 1 > size)
+            return;
+        this->header.nscount = read_u16(pos);
+        if(pos + 1 > size)
+            return;
+        this->header.arcount = read_u16(pos);
         
+        if(pos + 1 > size)
+            return;
         this->question.resize(this->header.qdcount);
         bool is_invalid = false;
         for(int i = 0; i < this->header.qdcount; i++){
+            if(pos + 1 > size)
+                return;
             this->question[i].name = read_name(is_invalid, pos);
             if(is_invalid)
                 return ;
-            if(pos + 1 < size)
-                this->question[i].type = read_u16(pos);
-            if(pos + 1 < size)
-                this->question[i].Class = read_u16(pos);
+            if(pos + 1 > size)
+                return;
+            this->question[i].type = read_u16(pos);
+            if(pos + 1 > size)
+                return;
+            this->question[i].Class = read_u16(pos);
         }
         
+        if(pos + 1 > size)
+            return;
         read_rr(this->header.ancount, pos, answer);
+        if(pos + 1 > size)
+            return;
         read_rr(this->header.nscount, pos, authority);
+        if(pos + 1 > size)
+            return;
         read_rr(this->header.arcount, pos, additional);
     }
     vector<uint8_t> fqdn_string_to_octets(string before = ""){
@@ -163,28 +188,70 @@ public:
         return after;
     }
     void print_parameter(void){
-        std::cout << "id: " << header.id << "\n";
-        std::cout << "flags: " << header.flags << "\n";
-        std::cout << "qdcount: " << header.qdcount << "\n";
-        std::cout << "ancount: " << header.ancount << "\n";
-        std::cout << "nscount: " << header.nscount << "\n";
-        std::cout << "arcount: " << header.arcount << "\n";
+        cout << "id: " << header.id << "\n";
+        cout << "flags: " << header.flags << "\n";
+        cout << "qdcount: " << header.qdcount << "\n";
+        cout << "ancount: " << header.ancount << "\n";
+        cout << "nscount: " << header.nscount << "\n";
+        cout << "arcount: " << header.arcount << "\n";
         
         for(int i = 0; i < question.size(); i++){
-            std::cout << "question" << i <<":\n";
-            std::cout << "name: "; print_octets(question[i].name);
-            std::cout << "type: " << question[i].type << "\n";
-            std::cout << "class: " << question[i].Class << "\n";
+            cout << "question" << i <<":\n";
+            cout << "name: "; print_octets(question[i].name);
+            cout << "type: " << question[i].type << "\n";
+            cout << "class: " << question[i].Class << "\n";
         }
 
-        std::cout << "answer:\n";
+        cout << "answer:\n";
         print_RRs(answer);
-        std::cout << "authority:\n";
+        cout << "authority:\n";
         print_RRs(authority);
-        std::cout << "additional:\n";
+        cout << "additional:\n";
         print_RRs(additional);
-        std::cout << "octets:\n";
+        cout << "octets:\n";
         print_octets(octets);
+    }
+    vector<uint8_t> send_packet(
+        int sock,
+        int destport,
+        const std::string destip,
+        const std::vector<uint8_t>& msg){
+        if (sock < 0) return {};
+
+        sockaddr_in addr{};
+        addr.sin_family = AF_INET;
+        addr.sin_port = htons(0);
+        addr.sin_addr.s_addr = INADDR_ANY;
+
+        sockaddr_in server{};
+        server.sin_family = AF_INET;
+        server.sin_port = htons(destport);
+        inet_pton(AF_INET, destip.c_str(), &server.sin_addr);
+
+        sendto(
+            sock,
+            msg.data(),
+            msg.size(),
+            0,
+            (sockaddr*)&server,
+            sizeof(server)
+        );
+
+        std::vector<uint8_t> buf(2048);
+        ssize_t n = 
+            recvfrom(
+                sock,
+                buf.data(),
+                buf.size(),
+                0,
+                nullptr,
+                nullptr
+            );
+
+        if (n <= 0) return {};
+
+        buf.resize(n);
+        return buf;
     }
 
 private:
@@ -198,10 +265,10 @@ private:
     void rrs_to_octets(const vector<RR> &rrs){
         for(const auto &rr: rrs){
             octets.insert(octets.end(), rr.name.begin(), rr.name.end());
-            octets_to_8bits(rr.type, octets);
-            octets_to_8bits(rr.Class, octets);
-            octets_to_8bits(rr.ttl, octets);
-            octets_to_8bits(rr.rdlen, octets);
+            binary_to_8bits(rr.type, octets);
+            binary_to_8bits(rr.Class, octets);
+            binary_to_8bits(rr.ttl, octets);
+            binary_to_8bits(rr.rdlen, octets);
             octets.insert(octets.end(), rr.rdata.begin(), rr.rdata.end());
         }
     }
@@ -306,24 +373,31 @@ private:
     }
     void print_RRs(const vector<RR>& rrs){
         for(int i = 0; i < rrs.size(); i++){
-            std::cout << "rr" << i <<":\n";
-            std::cout << "name: "; print_octets(rrs[i].name);
-            std::cout << "type: " << rrs[i].type << "\n";
-            std::cout << "class: " << rrs[i].Class << "\n";
-            std::cout << "ttl: " << rrs[i].ttl << "\n";
-            std::cout << "rdlen: " << rrs[i].rdlen << "\n";
-            std::cout << "rdata: "; print_octets(rrs[i].rdata);
+            cout << "rr" << i <<":\n";
+            cout << "name: "; print_octets(rrs[i].name);
+            cout << "type: " << rrs[i].type << "\n";
+            cout << "class: " << rrs[i].Class << "\n";
+            cout << "ttl: " << rrs[i].ttl << "\n";
+            cout << "rdlen: " << rrs[i].rdlen << "\n";
+            cout << "rdata: "; print_octets(rrs[i].rdata);
         }
     }
     void print_octets(const std::vector<uint8_t>& v){
         int size = v.size();
-        std::cout << std::hex;
+        cout << std::hex;
         for (int i = 0; i < v.size(); i++){
-            std::cout << std::setw(2) << std::setfill('0')<< static_cast<int>(v[i])<< ' ';
+            cout << std::setw(2) << std::setfill('0')<< static_cast<int>(v[i])<< ' ';
             if((i+1) % 10 == 0)
-                std::cout << '\n';
+                cout << '\n';
         }
-        std::cout << std::dec << '\n';
+        cout << std::dec << '\n';
     }
-
+    void binary_to_8bit(const uint64_t before, vector<uint8_t> &after){
+        uint64_t bits;
+        for(int i = 7; i >= 0; i--){
+            bits = before >> (8 * i);
+            if (bits != 0)
+                after.push_back(static_cast<uint8_t>(bits));
+        }
+    }
 };
