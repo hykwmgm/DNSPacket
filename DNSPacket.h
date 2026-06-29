@@ -177,9 +177,7 @@ public:
         string after;
         size_t i = 0;
         while (i < before.size() && before[i] != 0x00) {
-            uint8_t len = before[i];
-            ++i;
-
+            uint8_t len = before[i++];
             after.append(reinterpret_cast<const char*>(before.data() + i), len);
             after += '.';
             i += len;
@@ -211,6 +209,16 @@ public:
         cout << "octets:\n";
         print_octets(octets);
     }
+    void print_octets(const std::vector<uint8_t>& v = octets){
+        int size = v.size();
+        cout << std::hex;
+        for (int i = 0; i < v.size(); i++){
+            cout << std::setw(2) << std::setfill('0')<< static_cast<int>(v[i])<< ' ';
+            if((i+1) % 10 == 0)
+                cout << '\n';
+        }
+        cout << std::dec << '\n';
+    }
     vector<uint8_t> send_packet(
         int sock,
         int destport,
@@ -228,25 +236,10 @@ public:
         server.sin_port = htons(destport);
         inet_pton(AF_INET, destip.c_str(), &server.sin_addr);
 
-        sendto(
-            sock,
-            msg.data(),
-            msg.size(),
-            0,
-            (sockaddr*)&server,
-            sizeof(server)
-        );
+        sendto(sock, msg.data(), msg.size(), 0, (sockaddr*)&server, sizeof(server));
 
         std::vector<uint8_t> buf(2048);
-        ssize_t n = 
-            recvfrom(
-                sock,
-                buf.data(),
-                buf.size(),
-                0,
-                nullptr,
-                nullptr
-            );
+        ssize_t n = recvfrom(sock, buf.data(), buf.size(), 0, nullptr, nullptr);
 
         if (n <= 0) return {};
 
@@ -327,9 +320,8 @@ private:
                     pos = now + 1;
                 total_len ++;
                 break;
-            }else{
+            }else
                 total_len += len + 1;
-            }
             if((len & 0xC0) == 0xC0){
                 if(now + 1 >= octets.size()){
                     is_invalid = true;
@@ -381,16 +373,6 @@ private:
             cout << "rdlen: " << rrs[i].rdlen << "\n";
             cout << "rdata: "; print_octets(rrs[i].rdata);
         }
-    }
-    void print_octets(const std::vector<uint8_t>& v){
-        int size = v.size();
-        cout << std::hex;
-        for (int i = 0; i < v.size(); i++){
-            cout << std::setw(2) << std::setfill('0')<< static_cast<int>(v[i])<< ' ';
-            if((i+1) % 10 == 0)
-                cout << '\n';
-        }
-        cout << std::dec << '\n';
     }
     void binary_to_8bit(const uint64_t before, vector<uint8_t> &after){
         uint64_t bits;
