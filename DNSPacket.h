@@ -246,6 +246,17 @@ public:
         buf.resize(n);
         return buf;
     }
+    uint16_t make_flags(
+        uint16_t qr, uint16_t opcode, uint16_t aa,
+        uint16_t tc, uint16_t rd    , uint16_t ra,
+        uint16_t z , uint16_t ad    , uint16_t cd,
+        uint16_t rcode){
+        return ((qr     & 0x1)  << 15) | ((opcode & 0xF)  << 11) |
+               ((aa     & 0x1)  << 10) | ((tc     & 0x1)  << 9 ) |
+               ((rd     & 0x1)  << 8 ) | ((ra     & 0x1)  << 7 ) |
+               ((z      & 0x1)  << 6 ) | ((ad     & 0x1)  << 5 ) |
+               ((cd     & 0x1)  << 4 ) | ((rcode  & 0xF));
+    }
 
 private:
     vector<uint8_t> octets;
